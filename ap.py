@@ -155,6 +155,12 @@ def load_data():
         df["year"] = df["acq_date"].dt.year.astype("Int16", errors="ignore")
         df["month"] = df["acq_date"].dt.month.astype("Int8", errors="ignore")
 
+    # On memory-constrained systems (like Streamlit Cloud), downsample to prevent OOM
+    max_rows = 50000  # Streamlit Cloud typically has ~1GB RAM
+    if len(df) > max_rows:
+        df = df.sample(n=max_rows, random_state=42).reset_index(drop=True)
+        print(f"Downsampled data to {max_rows} rows to fit memory constraints")
+
     return df
 
 # --------------------------------------------------
@@ -210,7 +216,7 @@ if mode == "Fire Density Map":
 
     st.subheader("🔥 Satellite Fire Density")
 
-    sample = df.iloc[:10000]
+    sample = df.iloc[:5000]  # Reduced from 10000 to save memory
     data = sample[["latitude", "longitude", "brightness"]].to_dict("records")
 
     layer = pdk.Layer(
@@ -248,7 +254,7 @@ elif mode == "Time Animation Map":
 
         filtered = df[df.year == year]
 
-        sample = filtered.iloc[:10000]
+        sample = filtered.iloc[:5000]  # Reduced from 10000 to save memory
         data = sample[["latitude", "longitude"]].to_dict("records")
 
         layer = pdk.Layer(
@@ -280,9 +286,9 @@ elif mode == "Time Animation Map":
             future_end = st.selectbox("Future End Year", list(range(2025, 2031)), index=5)
 
         past_data = df[(df.year >= past_start) & (df.year <= past_end)]
-        past_sample = past_data.iloc[:10000]
+        past_sample = past_data.iloc[:5000]  # Reduced from 10000 to save memory
 
-        future_sample = df.iloc[:10000].copy()
+        future_sample = df.iloc[:5000].copy()  # Reduced from 10000 to save memory
         future_sample["brightness"] *= np.random.uniform(1.1, 1.3)
 
         map1, map2 = st.columns(2)
