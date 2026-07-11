@@ -11,7 +11,11 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier, XGBRegressor
 
-from alerts import trigger_alert
+try:
+    from alerts import trigger_alert
+except ImportError:
+    def trigger_alert(df):
+        return False
 
 st.set_page_config(page_title="AI Fire Monitoring", layout="wide")
 
