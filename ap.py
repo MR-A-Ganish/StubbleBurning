@@ -29,18 +29,40 @@ os.environ["SHAPE_RESTORE_SHX"] = "YES"
 # --------------------------------------------------
 @st.cache_resource
 def load_data():
-    df = pd.read_parquet(
-        "india_stubble_clean.parquet",
-        columns=["latitude", "longitude", "brightness", "frp", "acq_date"]
-    )
+    # Primary: parquet for local/large-run
+    try:
+        df = pd.read_parquet(
+            "india_stubble_clean.parquet",
+            columns=["latitude", "longitude", "brightness", "frp", "acq_date"]
+        )
+    except Exception:
+        # Fallback: smaller CSV sample included in repo for cloud deploys
+        sample_csv = "india_stubble_sample_100.csv"
+        if os.path.exists(sample_csv):
+            df = pd.read_csv(sample_csv)
+            # try to parse date column if present
+            if "acq_date" in df.columns:
+                df["acq_date"] = pd.to_datetime(df["acq_date"], errors="coerce")
+        else:
+            # propagate a clear error so Streamlit logs show helpful message
+            raise FileNotFoundError(
+                "Data file not found: india_stubble_clean.parquet or india_stubble_sample_100.csv"
+            )
 
-    df["latitude"] = df["latitude"].astype("float32")
-    df["longitude"] = df["longitude"].astype("float32")
-    df["brightness"] = df["brightness"].astype("float32")
-    df["frp"] = df["frp"].astype("float32")
+    # Normalize dtypes
+    for col in ["latitude", "longitude", "brightness", "frp"]:
+        if col in df.columns:
+            try:
+                df[col] = df[col].astype("float32")
+            except Exception:
+                pass
 
-    df["year"] = df["acq_date"].dt.year.astype("int16")
-    df["month"] = df["acq_date"].dt.month.astype("int8")
+    if "acq_date" in df.columns and not pd.api.types.is_datetime64_any_dtype(df["acq_date"]):
+        df["acq_date"] = pd.to_datetime(df["acq_date"], errors="coerce")
+
+    if "acq_date" in df.columns:
+        df["year"] = df["acq_date"].dt.year.astype("Int16", errors="ignore")
+        df["month"] = df["acq_date"].dt.month.astype("Int8", errors="ignore")
 
     return df
 
