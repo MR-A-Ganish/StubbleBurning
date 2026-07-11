@@ -5,6 +5,7 @@ import pydeck as pdk
 import plotly.express as px
 import geopandas as gpd
 import os
+import tempfile
 
 from sklearn.metrics import r2_score, accuracy_score
 from sklearn.preprocessing import StandardScaler
@@ -29,10 +30,35 @@ os.environ["SHAPE_RESTORE_SHX"] = "YES"
 # --------------------------------------------------
 @st.cache_resource
 def load_data():
+    # If a remote data URL is provided via env var, try to download it first
+    parquet_url = os.environ.get("PARQUET_URL") or os.environ.get("DATA_URL")
+    local_parquet = "india_stubble_clean.parquet"
+    def _download(url, dest_path):
+        try:
+            import requests
+        except Exception:
+            return False, "requests not available"
+        try:
+            with requests.get(url, stream=True, timeout=60) as r:
+                r.raise_for_status()
+                with open(dest_path, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+            return True, None
+        except Exception as e:
+            return False, str(e)
+
+    if parquet_url and not os.path.exists(local_parquet):
+        ok, err = _download(parquet_url, local_parquet)
+        if not ok:
+            # proceed to fallbacks but log the error
+            print(f"Could not download parquet from {parquet_url}: {err}")
+
     # Primary: parquet for local/large-run
     try:
         df = pd.read_parquet(
-            "india_stubble_clean.parquet",
+            local_parquet,
             columns=["latitude", "longitude", "brightness", "frp", "acq_date"]
         )
     except Exception:
