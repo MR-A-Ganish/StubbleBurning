@@ -27,7 +27,7 @@ os.environ["SHAPE_RESTORE_SHX"] = "YES"
 def load_data():
     df = pd.read_parquet(
         "india_stubble_clean.parquet",
-        columns=["latitude","longitude","brightness","frp","acq_date"]
+        columns=["latitude", "longitude", "brightness", "frp", "acq_date"]
     )
 
     df["latitude"] = df["latitude"].astype("float32")
@@ -59,12 +59,11 @@ def get_mapped_data():
     joined["state"] = joined["NAME_1"]
     joined["district"] = joined["NAME_2"]
 
-    joined = joined.drop(columns=["geometry","index_right"], errors="ignore")
-    joined = joined.dropna(subset=["state","district"])
+    joined = joined.drop(columns=["geometry", "index_right"], errors="ignore")
+    joined = joined.dropna(subset=["state", "district"])
 
     return joined
 
-# ✅ FIX: Proper data loading
 df = get_mapped_data()
 
 # --------------------------------------------------
@@ -95,20 +94,22 @@ if mode == "Fire Density Map":
     st.subheader("🔥 Satellite Fire Density")
 
     sample = df.iloc[:10000]
-    data = sample[["latitude","longitude","brightness"]].to_dict("records")
+    data = sample[["latitude", "longitude", "brightness"]].to_dict("records")
 
     layer = pdk.Layer(
         "HeatmapLayer",
         data=data,
-        get_position=["longitude","latitude"],
+        get_position=["longitude", "latitude"],
         get_weight="brightness",
         radiusPixels=60
     )
 
-    st.pydeck_chart(pdk.Deck(
-        layers=[layer],
-        initial_view_state=pdk.ViewState(latitude=22, longitude=78, zoom=4)
-    ))
+    st.pydeck_chart(
+        pdk.Deck(
+            layers=[layer],
+            initial_view_state=pdk.ViewState(latitude=22, longitude=78, zoom=4)
+        )
+    )
 
 # --------------------------------------------------
 # ⏳ TIME ANIMATION MAP
@@ -131,21 +132,23 @@ elif mode == "Time Animation Map":
         filtered = df[df.year == year]
 
         sample = filtered.iloc[:10000]
-        data = sample[["latitude","longitude"]].to_dict("records")
+        data = sample[["latitude", "longitude"]].to_dict("records")
 
         layer = pdk.Layer(
             "ScatterplotLayer",
             data=data,
-            get_position=["longitude","latitude"],
+            get_position=["longitude", "latitude"],
             get_radius=20000,
-            get_fill_color=[255,120,0],
+            get_fill_color=[255, 120, 0],
             opacity=0.6
         )
 
-        st.pydeck_chart(pdk.Deck(
-            layers=[layer],
-            initial_view_state=pdk.ViewState(latitude=22, longitude=78, zoom=4)
-        ))
+        st.pydeck_chart(
+            pdk.Deck(
+                layers=[layer],
+                initial_view_state=pdk.ViewState(latitude=22, longitude=78, zoom=4)
+            )
+        )
 
     else:
 
@@ -156,14 +159,14 @@ elif mode == "Time Animation Map":
             past_end = st.selectbox("Past End Year", sorted(df.year.unique()), index=5)
 
         with col2:
-            future_start = st.selectbox("Future Start Year", list(range(2025,2031)))
-            future_end = st.selectbox("Future End Year", list(range(2025,2031)), index=5)
+            future_start = st.selectbox("Future Start Year", list(range(2025, 2031)))
+            future_end = st.selectbox("Future End Year", list(range(2025, 2031)), index=5)
 
         past_data = df[(df.year >= past_start) & (df.year <= past_end)]
         past_sample = past_data.iloc[:10000]
 
         future_sample = df.iloc[:10000].copy()
-        future_sample["brightness"] *= np.random.uniform(1.1,1.3)
+        future_sample["brightness"] *= np.random.uniform(1.1, 1.3)
 
         map1, map2 = st.columns(2)
 
@@ -173,15 +176,17 @@ elif mode == "Time Animation Map":
             layer = pdk.Layer(
                 "ScatterplotLayer",
                 data=past_sample.to_dict("records"),
-                get_position=["longitude","latitude"],
+                get_position=["longitude", "latitude"],
                 get_radius=20000,
-                get_fill_color=[255,120,0]
+                get_fill_color=[255, 120, 0]
             )
 
-            st.pydeck_chart(pdk.Deck(
-                layers=[layer],
-                initial_view_state=pdk.ViewState(latitude=22, longitude=78, zoom=4)
-            ))
+            st.pydeck_chart(
+                pdk.Deck(
+                    layers=[layer],
+                    initial_view_state=pdk.ViewState(latitude=22, longitude=78, zoom=4)
+                )
+            )
 
         with map2:
             st.markdown(f"### Predicted Fires ({future_start}-{future_end})")
@@ -189,24 +194,25 @@ elif mode == "Time Animation Map":
             layer = pdk.Layer(
                 "ScatterplotLayer",
                 data=future_sample.to_dict("records"),
-                get_position=["longitude","latitude"],
+                get_position=["longitude", "latitude"],
                 get_radius=20000,
-                get_fill_color=[255,0,0]
+                get_fill_color=[255, 0, 0]
             )
 
-            st.pydeck_chart(pdk.Deck(
-                layers=[layer],
-                initial_view_state=pdk.ViewState(latitude=22, longitude=78, zoom=4)
-            ))
+            st.pydeck_chart(
+                pdk.Deck(
+                    layers=[layer],
+                    initial_view_state=pdk.ViewState(latitude=22, longitude=78, zoom=4)
+                )
+            )
 
 # --------------------------------------------------
-# 📊 FIRE ANALYTICS (FIXED)
+# 📊 FIRE ANALYTICS
 # --------------------------------------------------
 elif mode == "Fire Analytics":
 
     st.subheader("📊 Fire Trend Analysis (2012–2030)")
 
-    # ✅ FIX: use existing df
     temp_df = df.copy()
 
     daily = temp_df.groupby("acq_date").agg({
@@ -219,8 +225,8 @@ elif mode == "Fire Analytics":
     daily["brightness_smooth"] = daily["brightness"].rolling(7).mean()
 
     daily["month"] = daily["acq_date"].dt.month
-    daily["month_sin"] = np.sin(2*np.pi*daily["month"]/12)
-    daily["month_cos"] = np.cos(2*np.pi*daily["month"]/12)
+    daily["month_sin"] = np.sin(2 * np.pi * daily["month"] / 12)
+    daily["month_cos"] = np.cos(2 * np.pi * daily["month"] / 12)
 
     daily["lag1"] = daily["brightness_smooth"].shift(1)
     daily["lag2"] = daily["brightness_smooth"].shift(2)
@@ -231,14 +237,16 @@ elif mode == "Fire Analytics":
 
     daily = daily.dropna()
 
-    X = daily[[
-        "lag1","lag2","lag7",
-        "rolling_mean","rolling_std",
-        "month_sin","month_cos","frp"
-    ]]
+    X = daily[
+        [
+            "lag1", "lag2", "lag7",
+            "rolling_mean", "rolling_std",
+            "month_sin", "month_cos", "frp"
+        ]
+    ]
     y = daily["brightness_smooth"]
 
-    split = int(len(daily)*0.8)
+    split = int(len(daily) * 0.8)
 
     X_train, X_test = X[:split], X[split:]
     y_train, y_test = y[:split], y[split:]
@@ -258,14 +266,12 @@ elif mode == "Fire Analytics":
 
     st.metric("Model R² Score", f"{r2:.3f}")
 
-    # 🔥 FIXED FUTURE PREDICTION
     history = list(daily["brightness_smooth"].values[-7:])
     month = daily.iloc[-1]["month"]
 
     future_preds = []
 
-    for i in range(365*6):
-
+    for _ in range(365 * 6):
         month = (month % 12) + 1
 
         lag1 = history[-1]
@@ -275,8 +281,8 @@ elif mode == "Fire Analytics":
         roll_mean = np.mean(history)
         roll_std = np.std(history)
 
-        month_sin = np.sin(2*np.pi*month/12)
-        month_cos = np.cos(2*np.pi*month/12)
+        month_sin = np.sin(2 * np.pi * month / 12)
+        month_cos = np.cos(2 * np.pi * month / 12)
 
         frp_dynamic = daily.iloc[-1]["frp"] + np.random.normal(0, 2)
 
@@ -287,7 +293,7 @@ elif mode == "Fire Analytics":
             frp_dynamic
         ]])[0]
 
-        seasonal = 5*np.sin(2*np.pi*month/12)
+        seasonal = 5 * np.sin(2 * np.pi * month / 12)
         noise = np.random.normal(0, 1.2)
 
         pred = pred + seasonal + noise
@@ -309,7 +315,7 @@ elif mode == "Fire Analytics":
     future_df["type"] = "Predicted"
 
     past = daily.groupby(daily["acq_date"].dt.year)["brightness_smooth"].mean().reset_index()
-    past.columns = ["year","value"]
+    past.columns = ["year", "value"]
     past["type"] = "Past"
 
     combined = pd.concat([past, future_df])
@@ -360,15 +366,40 @@ elif mode == "District Monitoring":
     layer = pdk.Layer(
         "ScatterplotLayer",
         data=sample.to_dict("records"),
-        get_position=["longitude","latitude"],
+        get_position=["longitude", "latitude"],
         get_radius=6000,
         get_fill_color="color"
     )
 
-    st.pydeck_chart(pdk.Deck(
-        layers=[layer],
-        initial_view_state=pdk.ViewState(latitude=22, longitude=78, zoom=6)
-    ))
+    st.pydeck_chart(
+        pdk.Deck(
+            layers=[layer],
+            initial_view_state=pdk.ViewState(latitude=22, longitude=78, zoom=6)
+        )
+    )
+
+    # --------------------------------------------------
+    # 🚨 ALERT SYSTEM
+    # --------------------------------------------------
+    st.sidebar.subheader("🚨 Alert System")
+
+    enable_alert = st.sidebar.checkbox("Enable Alerts")
+
+    alerts = district_df[
+        district_df["brightness"] > np.percentile(district_df["brightness"], 75)
+    ]
+
+    top = alerts.groupby(["district", "state"]).size().reset_index(name="fires")
+
+    st.metric("🔥 High Risk Fires", len(alerts))
+
+    if enable_alert and len(alerts) > 10:
+        result = trigger_alert(top.head(3))
+        st.warning(result)
+
+    if st.sidebar.button("🚨 Send Alert Now"):
+        result = trigger_alert(top.head(3))
+        st.warning(result)
 
 # --------------------------------------------------
 # 🤖 AI MODEL
@@ -377,21 +408,21 @@ elif mode == "AI Risk Model":
 
     df["risk"] = (df["brightness"] > threshold).astype(int)
 
-    X = df[["brightness","frp"]]
+    X = df[["brightness", "frp"]]
     y = df["risk"]
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    X_train,X_test,y_train,y_test = train_test_split(
-        X_scaled,y,test_size=0.3,random_state=42
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_scaled, y, test_size=0.3, random_state=42
     )
 
     model = XGBClassifier()
-    model.fit(X_train,y_train)
+    model.fit(X_train, y_train)
 
     preds = model.predict(X_test)
 
-    acc = accuracy_score(y_test,preds)
+    acc = accuracy_score(y_test, preds)
 
-    st.metric("Model Accuracy", f"{acc*100:.2f}%")
+    st.metric("Model Accuracy", f"{acc * 100:.2f}%")
