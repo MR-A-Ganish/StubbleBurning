@@ -33,7 +33,7 @@ def load_data():
     # If a remote data URL is provided via env var, try to download it first
     parquet_url = os.environ.get("PARQUET_URL") or os.environ.get("DATA_URL")
     local_parquet = "india_stubble_clean.parquet"
-    def _download(url, dest_path):
+    def _download_http(url, dest_path):
         try:
             import requests
         except Exception:
@@ -41,13 +41,78 @@ def load_data():
         try:
             with requests.get(url, stream=True, timeout=60) as r:
                 r.raise_for_status()
+                total = int(r.headers.get("content-length", 0) or 0)
+                downloaded = 0
+                progress = None
+                status = None
+                try:
+                    progress = st.progress(0)
+                    status = st.empty()
+                except Exception:
+                    progress = None
+                    status = None
+
                 with open(dest_path, "wb") as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         if chunk:
                             f.write(chunk)
+                            downloaded += len(chunk)
+                            if progress and total:
+                                progress.progress(min(100, int(downloaded / total * 100)))
+                if status:
+                    status.text("Download complete")
             return True, None
         except Exception as e:
             return False, str(e)
+
+    def _download_s3(s3_url, dest_path):
+        try:
+            import boto3
+            from botocore.exceptions import BotoCoreError, ClientError
+        except Exception:
+            return False, "boto3 not available"
+        try:
+            # parse s3://bucket/key
+            assert s3_url.startswith("s3://")
+            _, _, path = s3_url.partition("s3://")
+            bucket, _, key = path.partition("/")
+            # create client (will use IAM role or env vars if available)
+            s3 = boto3.client("s3")
+            head = s3.head_object(Bucket=bucket, Key=key)
+            total = int(head.get("ContentLength", 0) or 0)
+            obj = s3.get_object(Bucket=bucket, Key=key)
+            stream = obj["Body"]
+            downloaded = 0
+            try:
+                progress = st.progress(0)
+                status = st.empty()
+            except Exception:
+                progress = None
+                status = None
+
+            with open(dest_path, "wb") as f:
+                while True:
+                    chunk = stream.read(8192)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    if progress and total:
+                        progress.progress(min(100, int(downloaded / total * 100)))
+            if status:
+                status.text("Download complete")
+            return True, None
+        except (BotoCoreError, ClientError, Exception) as e:
+            return False, str(e)
+
+    def _download(url, dest_path):
+        if not url:
+            return False, "no url provided"
+        url = url.strip()
+        if url.startswith("s3://"):
+            return _download_s3(url, dest_path)
+        else:
+            return _download_http(url, dest_path)
 
     if parquet_url and not os.path.exists(local_parquet):
         ok, err = _download(parquet_url, local_parquet)
